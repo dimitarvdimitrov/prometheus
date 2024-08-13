@@ -106,6 +106,20 @@ func TestMemoizedSeriesIterator(t *testing.T) {
 	require.Equal(t, chunkenc.ValNone, it.Seek(1024), "seek succeeded unexpectedly")
 }
 
+func TestMemoizedSeriesIteratorSimple(t *testing.T) {
+	it := NewMemoizedIterator(NewListSeriesIterator(samples{
+		fSample{t: 1, f: 2},
+		fSample{t: 3, f: 4},
+	}), 2)
+
+	require.Equal(t, chunkenc.ValFloat, it.Next())
+	actualT, actualF := it.At()
+	// we actually skip one
+	require.Equal(t, int64(1), it.AtT())
+	require.Equal(t, 1, actualT)
+	require.Equal(t, 2, actualF)
+}
+
 func BenchmarkMemoizedSeriesIterator(b *testing.B) {
 	// Simulate a 5 minute rate.
 	it := NewMemoizedIterator(newFakeSeriesIterator(int64(b.N), 30), 5*60)
