@@ -123,6 +123,74 @@ func BenchmarkMemPostings_ensureOrder(b *testing.B) {
 	}
 }
 
+func BenchmarkMemPostings_Add(b *testing.B) {
+	tests := map[string]struct {
+		numLabels int  // Number of labels per series
+		numSeries int  // Number of series to add
+		ordered   bool // Whether to use ordered or unordered postings
+	}{
+		"few labels, single series": {
+			numLabels: 2,
+			numSeries: 1,
+			ordered:   true,
+		},
+		"few labels, few series": {
+			numLabels: 2,
+			numSeries: 100,
+			ordered:   true,
+		},
+		"many labels, single series": {
+			numLabels: 20,
+			numSeries: 1,
+			ordered:   true,
+		},
+		"many labels, few series": {
+			numLabels: 20,
+			numSeries: 100,
+			ordered:   true,
+		},
+		"many labels, many series": {
+			numLabels: 20,
+			numSeries: 100000,
+			ordered:   true,
+		},
+	}
+
+	for testName, testData := range tests {
+		b.Run(testName, func(b *testing.B) {
+			// Pre-generate the label sets we'll use
+			labelSets := make([]labels.Labels, testData.numSeries)
+			for i := 0; i < testData.numSeries; i++ {
+				ls := make([]labels.Label, testData.numLabels)
+				for j := 0; j < testData.numLabels; j++ {
+					// Use different label names and values to avoid too much overlap
+					ls[j] = labels.Label{
+						Name:  fmt.Sprintf("label_%d", j),
+						Value: fmt.Sprintf("value_%d_%d", i%100, j),
+					}
+				}
+				labelSets[i] = ls
+			}
+
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			for n := 0; n < b.N; n++ {
+				var p *MemPostings
+				if testData.ordered {
+					p = NewMemPostings()
+				} else {
+					p = NewUnorderedMemPostings()
+				}
+
+				for i, ls := range labelSets {
+					p.Add(storage.SeriesRef(i), ls)
+				}
+			}
+		})
+	}
+}
+
 func TestIntersect(t *testing.T) {
 	a := newListPostings(1, 2, 3)
 	b := newListPostings(2, 3, 4)
